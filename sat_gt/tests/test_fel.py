@@ -8,7 +8,7 @@ from sat_gt.fel.parser import FELDocument, FELParseError, parse_fel_xml
 
 
 ROOT = Path(__file__).parents[1]
-SAMPLES = ROOT / "Samples"
+SAMPLES = ROOT / "sat_gt" / "Samples"
 
 
 def test_parse_fact_sample():
