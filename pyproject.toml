@@ -4,7 +4,7 @@ authors = [
     { name = "Rodrigo Castañeda", email = "rodrishishi@gmail.com"}
 ]
 description = "Applicación para importar, cuadrar y evaluar erpnext contra reportes de Sat Guatemala"
-requires-python = ">=3.14"
+requires-python = ">=3.10"
 readme = "README.md"
 dynamic = ["version"]
 dependencies = [
@@ -25,7 +25,7 @@ packages = []
 
 [tool.ruff]
 line-length = 110
-target-version = "py314"
+target-version = "py312"
 
 [tool.ruff.lint]
 select = [
