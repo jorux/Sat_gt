@@ -161,11 +161,9 @@ class SatGtFelImporter {
 	}
 
 	createDraft(result) {
-		const defaultSupplier = (result.matches || [])[0]?.supplier || "";
 		frappe.prompt(
 			[
 				{ fieldname: "company", fieldtype: "Link", options: "Company", label: __("Compañía"), reqd: 1 },
-				{ fieldname: "supplier", fieldtype: "Link", options: "Supplier", label: __("Proveedor"), default: defaultSupplier, reqd: 1 },
 				{ fieldname: "default_item", fieldtype: "Link", options: "Item", label: __("Item por defecto") },
 				{ fieldname: "expense_account", fieldtype: "Data", label: __("Cuenta de gasto (si no usa Item)") },
 			],
@@ -197,6 +195,7 @@ class SatGtFelImporter {
 					<div class="row">
 						${this.field(__("UUID"), doc.uuid, "col-sm-6")}
 						${this.field(__("Proveedor"), `${doc.issuer_name} (${doc.issuer_nit})`, "col-sm-6")}
+						${this.field(__("Proveedor ERPNext"), result.supplier ? `${result.supplier.supplier_name} (${result.supplier.name})` : __("No existe proveedor con este NIT"), "col-sm-6")}
 						${this.field(__("Total"), `${doc.currency} ${doc.grand_total}`, "col-sm-3")}
 						${this.field(__("Emisión"), doc.emission_datetime, "col-sm-5")}
 						${this.field(__("Complementos"), (doc.complements || []).join(", ") || "-", "col-sm-4")}

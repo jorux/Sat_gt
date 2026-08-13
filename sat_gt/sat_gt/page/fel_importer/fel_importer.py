@@ -25,6 +25,7 @@ def parse_uploaded_xml(filename: str, content: str) -> dict:
 
 	result = {"filename": filename, "ok": True, "document": _serialize_document(document)}
 	if factura_electronica_is_installed() and not document.is_credit_note:
+		result["supplier"] = _find_supplier(document)
 		result["matches"] = _find_matches(document)
 	else:
 		result["matches"] = []
@@ -116,7 +117,7 @@ def create_imported_suppliers(documents: str) -> dict:
 def create_purchase_invoice_draft(
 	content: str,
 	company: str,
-	supplier: str,
+	supplier: str | None = None,
 	default_item: str | None = None,
 	expense_account: str | None = None,
 ) -> dict:
@@ -132,8 +133,15 @@ def create_purchase_invoice_draft(
 	if frappe.db.exists("Purchase Invoice", {"numero_autorizacion_fel": document.uuid}):
 		frappe.throw("El UUID ya está asociado a una Purchase Invoice")
 
-	if not frappe.db.exists("Supplier", supplier):
-		frappe.throw("El proveedor seleccionado no existe")
+	matched_supplier = _find_supplier(document)
+	if not matched_supplier:
+		frappe.throw(
+			f"No existe un proveedor con el NIT {document.issuer_nit}. "
+			"Créalo primero usando Crear proveedores importados."
+		)
+	if supplier and supplier != matched_supplier["name"]:
+		frappe.throw("El proveedor no coincide con el NIT del XML")
+	supplier = matched_supplier["name"]
 	if not default_item and not expense_account:
 		frappe.throw("Selecciona un Item por defecto o una cuenta de gasto")
 
@@ -192,6 +200,22 @@ def _decode_xml(content: str) -> bytes:
 		return base64.b64decode(content, validate=True)
 	except Exception as exc:
 		raise ValueError("Contenido XML inválido") from exc
+
+
+def _find_supplier(document: FELDocument) -> dict | None:
+	"""Find a supplier by FEL NIT, accepting common hyphen formatting."""
+	variants = {document.issuer_nit, document.issuer_nit.replace("-", "")}
+	for nit in variants:
+		for field in ("facelec_nit_proveedor", "tax_id"):
+			name = frappe.db.get_value("Supplier", {field: nit}, "name")
+			if name:
+				return frappe.db.get_value(
+					"Supplier",
+					name,
+					["name", "supplier_name", "facelec_nit_proveedor"],
+					as_dict=True,
+				)
+	return None
 
 
 def _require_fel_app() -> None:
