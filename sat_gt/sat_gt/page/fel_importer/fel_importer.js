@@ -190,7 +190,7 @@ class SatGtFelImporter {
 
 		return $(
 			`<div class="card mb-3">
-				<div class="card-header"><strong>${frappe.utils.escape_html(result.filename)}</strong><span class="indicator-pill green ml-2">${doc.document_type}</span></div>
+				<div class="card-header"><strong>${frappe.utils.escape_html(result.filename)}</strong><span class="indicator-pill green ml-2">${doc.document_type}</span>${result.already_imported ? `<span class="indicator-pill orange ml-2">${__("Ya importado")}</span>` : ""}</div>
 				<div class="card-body">
 					<div class="row">
 						${this.field(__("UUID"), doc.uuid, "col-sm-6")}

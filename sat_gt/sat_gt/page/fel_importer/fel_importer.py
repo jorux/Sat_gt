@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import base64
+import json
 from calendar import monthrange
 from datetime import date
 from decimal import Decimal
@@ -23,9 +24,58 @@ def parse_uploaded_xml(filename: str, content: str) -> dict:
 	except Exception as exc:
 		return {"filename": filename, "ok": False, "error": str(exc)}
 
-	result = {"filename": filename, "ok": True, "document": _serialize_document(document)}
+	parsed_data = _serialize_document(document)
+	existing = frappe.db.get_value(
+		"FEL Imported Document",
+		{"uuid": document.uuid},
+		["name", "status", "purchase_invoice", "supplier"],
+		as_dict=True,
+	)
+	if existing:
+		supplier = frappe.db.get_value("Supplier", existing.supplier, ["name", "supplier_name"], as_dict=True) if existing.supplier else None
+		return {
+			"filename": filename,
+			"ok": True,
+			"already_imported": True,
+			"imported_document": existing.name,
+			"document": parsed_data,
+			"status": existing.status,
+			"purchase_invoice": existing.purchase_invoice,
+			"supplier": supplier,
+			"matches": [],
+		}
+
+	supplier = _find_supplier(document) if factura_electronica_is_installed() else None
+	imported_document = frappe.get_doc(
+		{
+			"doctype": "FEL Imported Document",
+			"source_file": filename,
+			"uuid": document.uuid,
+			"document_type": document.document_type,
+			"status": "Parsed",
+			"authorization_number": document.authorization_number,
+			"authorization_series": document.authorization_series,
+			"emission_datetime": document.emission_datetime,
+			"currency": document.currency,
+			"grand_total": document.grand_total,
+			"issuer_nit": document.issuer_nit,
+			"issuer_name": document.issuer_name,
+			"receiver_nit": document.receiver_nit,
+			"receiver_name": document.receiver_name,
+			"supplier": supplier["name"] if supplier else None,
+			"xml_content": content,
+			"parsed_data": json.dumps(parsed_data, ensure_ascii=False),
+		}
+	).insert()
+
+	result = {
+		"filename": filename,
+		"ok": True,
+		"imported_document": imported_document.name,
+		"document": parsed_data,
+	}
 	if factura_electronica_is_installed() and not document.is_credit_note:
-		result["supplier"] = _find_supplier(document)
+		result["supplier"] = supplier
 		result["matches"] = _find_matches(document)
 	else:
 		result["matches"] = []
@@ -75,6 +125,7 @@ def associate_uuid_manually(purchase_invoice: str, content: str, tolerance: str 
 	invoice.numero_autorizacion_fel = document.uuid
 	invoice.serie_original_del_documento = document.authorization_series or ""
 	invoice.save()
+	_update_imported_document(document.uuid, status="Associated", purchase_invoice=invoice.name)
 	return {"name": invoice.name, "uuid": document.uuid}
 
 
@@ -108,6 +159,7 @@ def create_imported_suppliers(documents: str) -> dict:
 				}
 			).insert()
 			created.append({"nit": document.issuer_nit, "name": supplier_doc.name})
+			_update_imported_document(document.uuid, supplier=supplier_doc.name)
 		except Exception as exc:
 			errors.append({"filename": row.get("filename", ""), "error": str(exc)})
 	return {"group": group_name, "created": created, "existing": existing, "errors": errors}
@@ -164,6 +216,7 @@ def create_purchase_invoice_draft(
 			"description": item.description,
 			"qty": item.quantity,
 			"rate": item.total / item.quantity,
+			"uom": "Unit",
 		}
 		if default_item:
 			row["item_code"] = default_item
@@ -171,6 +224,7 @@ def create_purchase_invoice_draft(
 			row["expense_account"] = expense_account
 		invoice.append("items", row)
 	invoice.insert()
+	_update_imported_document(document.uuid, status="Draft Created", purchase_invoice=invoice.name, supplier=supplier)
 	return {"name": invoice.name, "uuid": document.uuid, "warning": "Borrador creado con importes brutos; revisar impuestos antes de contabilizar."}
 
 
@@ -216,6 +270,12 @@ def _find_supplier(document: FELDocument) -> dict | None:
 					as_dict=True,
 				)
 	return None
+
+
+def _update_imported_document(uuid: str, **values: str | None) -> None:
+	name = frappe.db.get_value("FEL Imported Document", {"uuid": uuid}, "name")
+	if name:
+		frappe.db.set_value("FEL Imported Document", name, values, update_modified=False)
 
 
 def _require_fel_app() -> None:
