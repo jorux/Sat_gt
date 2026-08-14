@@ -161,16 +161,28 @@ class SatGtFelImporter {
 	}
 
 	createDraft(result) {
+		const taxFields = (result.document.taxes || []).map((tax) => ({
+			fieldname: this.taxFieldName(tax.name),
+			fieldtype: "Link",
+			options: "Account",
+			label: `${__("Cuenta")} ${tax.name} (${tax.amount})`,
+			reqd: 1,
+		}));
 		frappe.prompt(
 			[
 				{ fieldname: "company", fieldtype: "Link", options: "Company", label: __("Compañía"), reqd: 1 },
 				{ fieldname: "default_item", fieldtype: "Link", options: "Item", label: __("Item por defecto") },
 				{ fieldname: "expense_account", fieldtype: "Data", label: __("Cuenta de gasto (si no usa Item)") },
+				...taxFields,
 			],
 			(values) => {
+				const taxAccounts = {};
+				(result.document.taxes || []).forEach((tax) => {
+					taxAccounts[tax.name] = values[this.taxFieldName(tax.name)];
+				});
 				frappe.call({
 					method: "sat_gt.sat_gt.page.fel_importer.fel_importer.create_purchase_invoice_draft",
-					args: { ...values, content: result.content },
+					args: { ...values, tax_accounts: JSON.stringify(taxAccounts), content: result.content },
 				}).then((response) => {
 					frappe.msgprint(`${__("Borrador creado")}: ${response.message.name}<br>${response.message.warning}`);
 				});
@@ -180,6 +192,10 @@ class SatGtFelImporter {
 		);
 	}
 
+	taxFieldName(name) {
+		return `tax_account_${name.toLowerCase().replace(/[^a-z0-9]+/g, "_")}`;
+	}
+
 		documentCard(result) {
 		const doc = result.document;
 		const matches = result.matches || [];
@@ -187,6 +203,7 @@ class SatGtFelImporter {
 			? matches.map((match) => `<li><a href="/app/purchase-invoice/${encodeURIComponent(match.name)}">${frappe.utils.escape_html(match.name)}</a> · ${frappe.utils.escape_html(match.supplier_name || match.supplier || "")} · ${match.currency} ${match.grand_total}</li>`).join("")
 			: `<li class="text-muted">${__("Factura no ingresada")}</li>`;
 		const items = (doc.items || []).map((item) => `<tr><td>${item.line_number}</td><td>${frappe.utils.escape_html(item.description)}</td><td>${item.quantity} ${item.unit || ""}</td><td class="text-right">${item.total}</td></tr>`).join("");
+		const taxes = (doc.taxes || []).map((tax) => `${frappe.utils.escape_html(tax.name)}: ${tax.amount}`).join(" · ") || __("Sin impuestos");
 
 		return $(
 			`<div class="card mb-3">
@@ -197,6 +214,7 @@ class SatGtFelImporter {
 						${this.field(__("Proveedor"), `${doc.issuer_name} (${doc.issuer_nit})`, "col-sm-6")}
 						${this.field(__("Proveedor ERPNext"), result.supplier ? `${result.supplier.supplier_name} (${result.supplier.name})` : __("No existe proveedor con este NIT"), "col-sm-6")}
 						${this.field(__("Total"), `${doc.currency} ${doc.grand_total}`, "col-sm-3")}
+						${this.field(__("Impuestos XML"), taxes, "col-sm-5")}
 						${this.field(__("Emisión"), doc.emission_datetime, "col-sm-5")}
 						${this.field(__("Complementos"), (doc.complements || []).join(", ") || "-", "col-sm-4")}
 					</div>

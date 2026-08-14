@@ -90,7 +90,7 @@ def parse_fel_xml(source: str | bytes | bytearray | Path | BinaryIO) -> FELDocum
 	if not uuid or not issuer_nit:
 		raise FELParseError("El XML FEL no contiene UUID o NITEmisor")
 
-	items = tuple(_parse_item(item) for item in _children(data, "Item"))
+	items = tuple(_parse_item(item) for item in _children(_first(data, "Items"), "Item"))
 	taxes = tuple(_parse_total_tax(tax) for tax in _children(_first(data, "TotalImpuestos"), "TotalImpuesto"))
 	complements = tuple(
 		name

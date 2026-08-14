@@ -13,6 +13,7 @@ import frappe
 from sat_gt.fel.erpnext import factura_electronica_is_installed
 from sat_gt.fel.matching import find_purchase_invoice_matches
 from sat_gt.fel.parser import FELDocument, parse_fel_xml
+from sat_gt.fel.taxes import build_purchase_invoice_tax_rows, net_line_total
 
 
 @frappe.whitelist()
@@ -172,6 +173,7 @@ def create_purchase_invoice_draft(
 	supplier: str | None = None,
 	default_item: str | None = None,
 	expense_account: str | None = None,
+	tax_accounts: str | None = None,
 ) -> dict:
 	"""Create an unsubmitted Purchase Invoice draft from a FEL XML.
 
@@ -196,6 +198,8 @@ def create_purchase_invoice_draft(
 	supplier = matched_supplier["name"]
 	if not default_item and not expense_account:
 		frappe.throw("Selecciona un Item por defecto o una cuenta de gasto")
+	account_by_tax = frappe.parse_json(tax_accounts) if tax_accounts else {}
+	tax_rows = build_purchase_invoice_tax_rows(document, account_by_tax)
 
 	invoice = frappe.get_doc(
 		{
@@ -215,7 +219,7 @@ def create_purchase_invoice_draft(
 		row = {
 			"description": item.description,
 			"qty": item.quantity,
-			"rate": item.total / item.quantity,
+			"rate": net_line_total(item) / item.quantity,
 			"uom": "Unit",
 		}
 		if default_item:
@@ -223,9 +227,11 @@ def create_purchase_invoice_draft(
 		if expense_account:
 			row["expense_account"] = expense_account
 		invoice.append("items", row)
+	for tax_row in tax_rows:
+		invoice.append("taxes", tax_row)
 	invoice.insert()
 	_update_imported_document(document.uuid, status="Draft Created", purchase_invoice=invoice.name, supplier=supplier)
-	return {"name": invoice.name, "uuid": document.uuid, "warning": "Borrador creado con importes brutos; revisar impuestos antes de contabilizar."}
+	return {"name": invoice.name, "uuid": document.uuid, "warning": "Borrador creado con impuestos tomados directamente del XML; revisar antes de contabilizar."}
 
 
 def _find_matches(document: FELDocument) -> list[dict]:
