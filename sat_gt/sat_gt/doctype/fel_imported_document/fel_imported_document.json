@@ -28,7 +28,8 @@
   "error_message",
   "section_content",
   "xml_content",
-  "parsed_data"
+  "parsed_data",
+  "tax_accounts"
  ],
  "fields": [
   {"fieldname": "source_file", "fieldtype": "Data", "label": "Archivo de origen", "read_only": 1},
@@ -52,7 +53,8 @@
   {"fieldname": "error_message", "fieldtype": "Small Text", "label": "Error", "read_only": 1},
   {"fieldname": "section_content", "fieldtype": "Section Break", "label": "Contenido original", "collapsible": 1},
   {"fieldname": "xml_content", "fieldtype": "Long Text", "label": "XML base64", "read_only": 1},
-  {"fieldname": "parsed_data", "fieldtype": "Long Text", "label": "Datos parseados", "read_only": 1}
+  {"fieldname": "parsed_data", "fieldtype": "Long Text", "label": "Datos parseados", "read_only": 1},
+  {"fieldname": "tax_accounts", "fieldtype": "Long Text", "label": "Cuentas de impuestos", "read_only": 1}
  ],
  "links": [],
  "module": "Sat_gt",

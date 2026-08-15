@@ -161,28 +161,16 @@ class SatGtFelImporter {
 	}
 
 	createDraft(result) {
-		const taxFields = (result.document.taxes || []).map((tax) => ({
-			fieldname: this.taxFieldName(tax.name),
-			fieldtype: "Link",
-			options: "Account",
-			label: `${__("Cuenta")} ${tax.name} (${tax.amount})`,
-			reqd: 1,
-		}));
 		frappe.prompt(
 			[
 				{ fieldname: "company", fieldtype: "Link", options: "Company", label: __("Compañía"), reqd: 1 },
 				{ fieldname: "default_item", fieldtype: "Link", options: "Item", label: __("Item por defecto") },
 				{ fieldname: "expense_account", fieldtype: "Data", label: __("Cuenta de gasto (si no usa Item)") },
-				...taxFields,
 			],
 			(values) => {
-				const taxAccounts = {};
-				(result.document.taxes || []).forEach((tax) => {
-					taxAccounts[tax.name] = values[this.taxFieldName(tax.name)];
-				});
 				frappe.call({
 					method: "sat_gt.sat_gt.page.fel_importer.fel_importer.create_purchase_invoice_draft",
-					args: { ...values, tax_accounts: JSON.stringify(taxAccounts), content: result.content },
+					args: { ...values, content: result.content },
 				}).then((response) => {
 					frappe.msgprint(`${__("Borrador creado")}: ${response.message.name}<br>${response.message.warning}`);
 				});
@@ -190,10 +178,6 @@ class SatGtFelImporter {
 			__("Crear borrador"),
 			__("Crear"),
 		);
-	}
-
-	taxFieldName(name) {
-		return `tax_account_${name.toLowerCase().replace(/[^a-z0-9]+/g, "_")}`;
 	}
 
 		documentCard(result) {

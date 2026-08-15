@@ -13,7 +13,7 @@ import frappe
 from sat_gt.fel.erpnext import factura_electronica_is_installed
 from sat_gt.fel.matching import find_purchase_invoice_matches
 from sat_gt.fel.parser import FELDocument, parse_fel_xml
-from sat_gt.fel.taxes import build_purchase_invoice_tax_rows, net_line_total
+from sat_gt.fel.taxes import build_purchase_invoice_tax_rows, net_line_total, tax_amounts_by_name
 
 
 @frappe.whitelist()
@@ -198,7 +198,9 @@ def create_purchase_invoice_draft(
 	supplier = matched_supplier["name"]
 	if not default_item and not expense_account:
 		frappe.throw("Selecciona un Item por defecto o una cuenta de gasto")
-	account_by_tax = frappe.parse_json(tax_accounts) if tax_accounts else {}
+	account_by_tax = _get_tax_accounts(company, tax_amount_names(document))
+	if tax_accounts:
+		account_by_tax.update(frappe.parse_json(tax_accounts))
 	tax_rows = build_purchase_invoice_tax_rows(document, account_by_tax)
 
 	invoice = frappe.get_doc(
@@ -230,7 +232,13 @@ def create_purchase_invoice_draft(
 	for tax_row in tax_rows:
 		invoice.append("taxes", tax_row)
 	invoice.insert()
-	_update_imported_document(document.uuid, status="Draft Created", purchase_invoice=invoice.name, supplier=supplier)
+	_update_imported_document(
+		document.uuid,
+		status="Draft Created",
+		purchase_invoice=invoice.name,
+		supplier=supplier,
+		tax_accounts=json.dumps(account_by_tax),
+	)
 	return {"name": invoice.name, "uuid": document.uuid, "warning": "Borrador creado con impuestos tomados directamente del XML; revisar antes de contabilizar."}
 
 
@@ -282,6 +290,20 @@ def _update_imported_document(uuid: str, **values: str | None) -> None:
 	name = frappe.db.get_value("FEL Imported Document", {"uuid": uuid}, "name")
 	if name:
 		frappe.db.set_value("FEL Imported Document", name, values, update_modified=False)
+
+
+def _get_tax_accounts(company: str, tax_names: list[str]) -> dict[str, str]:
+	rows = frappe.get_all(
+		"FEL Tax Account Mapping",
+		filters={"company": company, "tax_name": ["in", tax_names], "enabled": 1},
+		fields=["tax_name", "account_head"],
+		limit_page_length=0,
+	)
+	return {row.tax_name: row.account_head for row in rows}
+
+
+def tax_amount_names(document: FELDocument) -> list[str]:
+	return list(tax_amounts_by_name(document))
 
 
 def _require_fel_app() -> None:

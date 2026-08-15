@@ -1,0 +1,21 @@
+{
+ "actions": [],
+ "allow_rename": 0,
+ "autoname": "hash",
+ "creation": "2026-08-14 00:00:00.000000",
+ "doctype": "DocType",
+ "field_order": ["company", "tax_name", "account_head", "enabled"],
+ "fields": [
+  {"fieldname": "company", "fieldtype": "Link", "label": "Compañía", "options": "Company", "reqd": 1, "in_list_view": 1},
+  {"fieldname": "tax_name", "fieldtype": "Data", "label": "Impuesto FEL", "reqd": 1, "in_list_view": 1},
+  {"fieldname": "account_head", "fieldtype": "Link", "label": "Cuenta contable", "options": "Account", "reqd": 1, "in_list_view": 1},
+  {"default": "1", "fieldname": "enabled", "fieldtype": "Check", "label": "Activo", "in_list_view": 1}
+ ],
+ "index_web_pages_for_search": 0,
+ "module": "Sat_gt",
+ "name": "FEL Tax Account Mapping",
+ "permissions": [{"create": 1, "delete": 1, "read": 1, "write": 1, "role": "System Manager"}],
+ "sort_field": "modified",
+ "sort_order": "DESC",
+ "track_changes": 1
+}

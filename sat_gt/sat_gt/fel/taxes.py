@@ -39,14 +39,14 @@ def build_purchase_invoice_tax_rows(
 	the user before a draft can be created.
 	"""
 	amounts = tax_amounts_by_name(document)
-	missing = sorted(name for name in amounts if not account_by_tax.get(name))
+	missing = sorted(name for name in amounts if not (account_by_tax.get(name) or account_by_tax.get(name.upper())))
 	if missing:
 		raise FELTaxMappingError("Faltan cuentas para impuestos: " + ", ".join(missing))
 
 	return [
 		{
 			"charge_type": "Actual",
-			"account_head": account_by_tax[name],
+			"account_head": account_by_tax.get(name) or account_by_tax[name.upper()],
 			"description": name,
 			"tax_amount": amount,
 			"rate": 0,
